@@ -1,0 +1,13 @@
+{
+    "python.pythonPath": "${workspaceFolder}/venv/bin/python",
+    "python.envFile": "${workspaceFolder}/.env",
+    "editor.formatOnSave": true,
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.linting.flake8Enabled": true,
+    "folders": [
+        {
+            "path": "."
+        }
+    ]
+}

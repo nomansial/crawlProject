@@ -1,0 +1,10 @@
+psycopg[binary,pool]
+httpx
+beautifulsoup4
+pytz
+fastapi
+jinja2
+uvicorn[standard]
+pydantic
+pydantic-settings
+aioodbc

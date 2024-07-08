@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Schedule Crawl</title>
+  </head>
+  <body>
+    <h1>Schedule a Crawl</h1>
+    <form id="crawlForm">
+      <!-- <div>
+        <label for="crawlDate">Minimum Crawl Date:</label>
+        <input type="date" id="crawlDate" name="crawlDate" />
+      </div> -->
+      <!-- <div>
+        <input
+          type="checkbox"
+          id="includeNeverProcessed"
+          name="includeNeverProcessed"
+        />
+        <label for="includeNeverProcessed"
+          >Include rows that have never been processed (NULL
+          TimeProcessed)</label
+        >
+      </div> -->
+      <!-- <button type="submit">Schedule Crawl</button> -->
+      
+    </form>
+    <button onclick="startCrawl()" >Start</button>
+    <button onclick="stopCrawl()">Stop</button>
+
+    <div id="recordCount"></div>
+    <div id="timeTaken"></div>
+    <div id="response"></div>
+
+    <h2>Scheduled Crawls (Showing last 50 crawls)</h2>
+    <table id="crawlTable" border="1">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Created At</th>
+          <th>Minimum Date</th>
+          <th>Include Never Processed</th>
+          <th>Status</th>
+          <th>Finished At</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    
+    <script>
+      
+      let updateInterval = null;
+      let firstTime = true;
+      let totalRecords = 0;
+
+      
+
+      document.getElementById("crawlForm").onsubmit = async (event) => {
+        event.preventDefault();
+        const crawlDate = document.getElementById("crawlDate").value;
+        const includeNeverProcessed = document.getElementById(
+          "includeNeverProcessed",
+        ).checked;
+
+        if (!crawlDate && !includeNeverProcessed) {
+          document.getElementById("response").innerText =
+            "Please select a date or check the checkbox.";
+          return;
+        }
+
+        const requestBody = {
+          minimum_date: crawlDate || null,
+          include_never_processed: includeNeverProcessed,
+        };
+
+        try {
+          const response = await fetch("/api/v1/crawls", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(requestBody),
+          });
+
+          if (response.status === 409) {
+            const data = await response.json();
+            document.getElementById("response").innerText =
+              "Error: " + data.detail;
+            return;
+          }
+
+          if (!response.ok) {
+            throw new Error("Network response was not ok");
+          }
+
+          const data = await response.json();
+          document.getElementById("response").innerText =
+            "Response: " + data.message;
+          loadScheduledCrawls();
+        } catch (error) {
+          document.getElementById("response").innerText =
+            "Error scheduling crawl: " + error;
+        }
+      };
+
+
+
+      async function startCrawl() {
+
+          firstTime = true;
+          const response = await fetch("/api/v1/crawls/startCrawl", {
+              method: "POST",
+          });
+
+          if (!response.ok) {
+              throw new Error("Network response was not ok " + response.statusText);
+          }
+          else{
+            // Start updating record count every 1.5 seconds
+            fetchElapsedTime()
+            setTimeout(updateInterval = setInterval(updateRecordCount, 1500), 5000)
+          }
+
+          const data = await response.json();
+          console.log(data);
+
+          
+
+          return data;
+      }
+
+      async function stopCrawl() {
+          const response = await fetch("/api/v1/crawls/stopCrawl", {
+              method: "POST",
+          });
+
+          if (!response.ok) {
+              throw new Error("Network response was not ok " + response.statusText);
+          }
+
+          const data = await response.json();
+          console.log(data);
+
+          // Stop updating record count
+          if (updateInterval) {
+              clearInterval(updateInterval);
+              updateInterval = null;
+          }
+
+           // Stop fetching elapsed time (optional)
+           clearInterval(fetchInterval);
+
+          const timeTakenElement = document.getElementById('timeTaken');
+          if (timeTakenElement) {
+              timeTakenElement.innerHTML = `Estimated Time Remaining: 0s`;
+          } else {
+              console.error('Element with id "timeTaken" not found.');
+          }
+
+        return data;
+      }
+
+      
+      let fetchInterval;
+
+      async function fetchElapsedTime() {
+        debugger
+          try {
+              const response = await fetch("/api/v1/crawls/getElapsedTime", {
+                  method: "POST",
+              });
+              const data = await response.json();
+              if (data.elapsedTime>0){
+                const timeTakenElement = document.getElementById('timeTaken');
+                if (timeTakenElement) {
+                  let elapsedTimeSeconds = (data.elapsedTime.toFixed(2) * totalRecords * 5000 * 1.2);
+                  timeTakenElement.innerHTML = `Estimated Time Remaining: ${new Date(elapsedTimeSeconds * 1000).toISOString().substr(11, 8)}`;
+                } else {
+                    console.error('Element with id "timeTaken" not found.');
+                }
+              }
+              else{
+                setTimeout(fetchElapsedTime, 3000)
+              }
+              
+          } catch (error) {
+              console.error('Error fetching elapsed time:', error);
+          }
+      }
+        
+      async function updateRecordCount() {
+          try {
+              const response = await fetch("/api/v1/crawls/getRecordCount", {
+                  method: "POST",
+              });
+              const data = await response.json();
+              let recordsProcessed = 0;
+
+              if (firstTime) {
+                  totalRecords = data.count;
+                  if (data.count > 0) {
+                      firstTime = false;
+                  }
+              } else {
+                  recordsProcessed = totalRecords - data.count;
+              }
+
+              var element = document.getElementById('recordCount');
+              if (element) {
+                  element.innerHTML = `${recordsProcessed} of ${totalRecords} Records Processed `;
+              } else {
+                  console.error('Element with id "recordCount" not found.');
+              }
+          } catch (error) {
+              console.error('Error fetching record count:', error);
+          }
+      }
+
+      async function loadScheduledCrawls() {
+        // Stop updating record count
+        if (updateInterval) {
+              clearInterval(updateInterval);
+              updateInterval = null;
+          }
+        try {
+          const response = await fetch("/api/v1/crawls", {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+          const data = await response.json();
+          const crawlTableBody = document
+            .getElementById("crawlTable")
+            .getElementsByTagName("tbody")[0];
+          crawlTableBody.innerHTML = "";
+          data.forEach((crawl) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${crawl.id}</td>
+              <td>${crawl.created_at}</td>
+              <td>${crawl.minimum_date}</td>
+              <td>${crawl.include_never_processed ? "Yes" : "No"}</td>
+              <td>${crawl.status}</td>
+              <td>${crawl.finished_at ?? "N/A"}</td>
+            `;
+            crawlTableBody.appendChild(row);
+          });
+        } catch (error) {
+          console.error("Error loading scheduled crawls:", error);
+        }
+      }
+
+      window.onload = loadScheduledCrawls;
+    </script>
+  </body>
+</html>

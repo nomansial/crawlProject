@@ -39,7 +39,7 @@
         <tr>
           <th>ID</th>
           <th>Created At</th>
-          <th>Minimum Date</th>
+          <!-- <th>Minimum Date</th> -->
           <th>Include Never Processed</th>
           <th>Status</th>
           <th>Finished At</th>
@@ -174,8 +174,11 @@
               if (data.elapsedTime>0){
                 const timeTakenElement = document.getElementById('timeTaken');
                 if (timeTakenElement) {
-                  let elapsedTimeSeconds = (data.elapsedTime.toFixed(2) * totalRecords * 5000 * 1.2);
-                  timeTakenElement.innerHTML = `Estimated Time Remaining: ${new Date(elapsedTimeSeconds * 1000).toISOString().substr(11, 8)}`;
+                    let elapsedTimeSeconds = Math.round(data.elapsedTime * totalRecords * 5000 * 1.2);
+
+                    let formattedDuration = formatDuration(elapsedTimeSeconds);
+
+                    timeTakenElement.innerHTML = `Estimated Time Remaining: ${formattedDuration}`;
                 } else {
                     console.error('Element with id "timeTaken" not found.');
                 }
@@ -189,6 +192,20 @@
           }
       }
         
+
+      function formatDuration(elapsedTimeSeconds) {
+      let weeks = Math.floor(elapsedTimeSeconds / (60 * 60 * 24 * 7));
+      elapsedTimeSeconds -= weeks * (60 * 60 * 24 * 7);
+      let days = Math.floor(elapsedTimeSeconds / (60 * 60 * 24));
+      elapsedTimeSeconds -= days * (60 * 60 * 24);
+      let hours = Math.floor(elapsedTimeSeconds / (60 * 60));
+      elapsedTimeSeconds -= hours * (60 * 60);
+      let minutes = Math.floor(elapsedTimeSeconds / 60);
+      let seconds = elapsedTimeSeconds % 60;
+
+      return `${weeks} weeks, ${days} days, ${hours} hours, ${minutes} minutes, ${seconds} seconds`;
+    }
+
       async function updateRecordCount() {
           try {
               const response = await fetch("/api/v1/crawls/getRecordCount", {
@@ -203,6 +220,7 @@
                       firstTime = false;
                   }
               } else {
+                  debugger
                   recordsProcessed = totalRecords - data.count;
               }
 
@@ -237,10 +255,11 @@
           crawlTableBody.innerHTML = "";
           data.forEach((crawl) => {
             const row = document.createElement("tr");
+            
+              // <td>${crawl.minimum_date}</td>
             row.innerHTML = `
               <td>${crawl.id}</td>
               <td>${crawl.created_at}</td>
-              <td>${crawl.minimum_date}</td>
               <td>${crawl.include_never_processed ? "Yes" : "No"}</td>
               <td>${crawl.status}</td>
               <td>${crawl.finished_at ?? "N/A"}</td>

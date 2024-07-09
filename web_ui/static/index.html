@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Schedule Crawl</title>
+  <title>Crawl</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -31,6 +31,10 @@
     button:hover {
       background-color: #45a049;
     }
+    button.disabled {
+      background-color: grey;
+      cursor: not-allowed;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -44,15 +48,20 @@
     th {
       background-color: #f2f2f2;
     }
-    #recordCount, #timeTaken, #response {
+    .statusContainer {
       margin-top: 10px;
       padding: 10px;
       border: 1px solid #ddd;
+      display: flex;
+      align-items: center;
+    }
+    #timeTaken {
+      font-weight: normal;
     }
   </style>
 </head>
 <body>
-  <h1>Schedule a Crawl</h1>
+  <h1>New Crawl</h1>
   <form id="crawlForm">
     <!-- Form elements here -->
     <!-- <div>
@@ -72,14 +81,21 @@
     </div> -->
     <!-- <button type="submit">Schedule Crawl</button> -->
   </form>
-  <button onclick="startCrawl()">Start</button>
-  <button onclick="stopCrawl()">Stop</button>
+  <button id="startButton" onclick="startCrawl()">Start</button>
+  <button id="stopButton" class="disabled" onclick="stopCrawl()" disabled>Stop</button>
 
-  <div id="recordCount"></div>
-  <div id="timeTaken"></div>
+  <div id="startedAtContainer" class="statusContainer">
+    <strong>Started At:</strong>
+    <div id="startedAt" style="margin-left: 10px;"></div>
+  </div>
+  <div id="currentStatusContainer" class="statusContainer">
+    <strong>Current Crawl Status:</strong>
+    <div id="recordCount" style="margin-left: 10px;"></div>
+  </div>
+  <div id="timeTaken" class="statusContainer"></div>
   <div id="response"></div>
 
-  <h2>Scheduled Crawls (Showing last 50 crawls)</h2>
+  <h2>Last 50 Crawls</h2>
   <table id="crawlTable">
     <thead>
       <tr>
@@ -99,6 +115,10 @@
     let timeInterval = null;
     let firstTime = true;
     let totalRecords = 0;
+
+    const startButton = document.getElementById('startButton');
+    const stopButton = document.getElementById('stopButton');
+    const startedAtElement = document.getElementById('startedAt');
 
     document.getElementById("crawlForm").onsubmit = async (event) => {
       event.preventDefault();
@@ -165,6 +185,14 @@
       const data = await response.json();
       console.log(data);
 
+      const currentTime = new Date().toLocaleString();
+      startedAtElement.innerText = currentTime;
+
+      startButton.classList.add('disabled');
+      startButton.disabled = true;
+      stopButton.classList.remove('disabled');
+      stopButton.disabled = false;
+
       return data;
     }
 
@@ -193,10 +221,15 @@
 
       const timeTakenElement = document.getElementById('timeTaken');
       if (timeTakenElement) {
-        timeTakenElement.innerHTML = `Estimated Time Remaining: 0s`;
+        timeTakenElement.innerHTML = '';
       } else {
         console.error('Element with id "timeTaken" not found.');
       }
+
+      startButton.classList.remove('disabled');
+      startButton.disabled = false;
+      stopButton.classList.add('disabled');
+      stopButton.disabled = true;
 
       return data;
     }

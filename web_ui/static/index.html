@@ -1,199 +1,233 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Schedule Crawl</title>
-  </head>
-  <body>
-    <h1>Schedule a Crawl</h1>
-    <form id="crawlForm">
-      <!-- <div>
-        <label for="crawlDate">Minimum Crawl Date:</label>
-        <input type="date" id="crawlDate" name="crawlDate" />
-      </div> -->
-      <!-- <div>
-        <input
-          type="checkbox"
-          id="includeNeverProcessed"
-          name="includeNeverProcessed"
-        />
-        <label for="includeNeverProcessed"
-          >Include rows that have never been processed (NULL
-          TimeProcessed)</label
-        >
-      </div> -->
-      <!-- <button type="submit">Schedule Crawl</button> -->
-      
-    </form>
-    <button onclick="startCrawl()" >Start</button>
-    <button onclick="stopCrawl()">Stop</button>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Schedule Crawl</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      margin: 20px;
+    }
+    h1 {
+      font-size: 1.8em;
+    }
+    h2 {
+      font-size: 1.5em;
+      margin-top: 30px;
+    }
+    form {
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    #recordCount, #timeTaken, #response {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+  <h1>Schedule a Crawl</h1>
+  <form id="crawlForm">
+    <!-- Form elements here -->
+    <!-- <div>
+      <label for="crawlDate">Minimum Crawl Date:</label>
+      <input type="date" id="crawlDate" name="crawlDate" />
+    </div> -->
+    <!-- <div>
+      <input
+        type="checkbox"
+        id="includeNeverProcessed"
+        name="includeNeverProcessed"
+      />
+      <label for="includeNeverProcessed"
+        >Include rows that have never been processed (NULL
+        TimeProcessed)</label
+      >
+    </div> -->
+    <!-- <button type="submit">Schedule Crawl</button> -->
+  </form>
+  <button onclick="startCrawl()">Start</button>
+  <button onclick="stopCrawl()">Stop</button>
 
-    <div id="recordCount"></div>
-    <div id="timeTaken"></div>
-    <div id="response"></div>
+  <div id="recordCount"></div>
+  <div id="timeTaken"></div>
+  <div id="response"></div>
 
-    <h2>Scheduled Crawls (Showing last 50 crawls)</h2>
-    <table id="crawlTable" border="1">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Created At</th>
-          <!-- <th>Minimum Date</th> -->
-          <th>Include Never Processed</th>
-          <th>Status</th>
-          <th>Finished At</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    
-    <script>
-      
-      let updateInterval = null;
-      let firstTime = true;
-      let totalRecords = 0;
+  <h2>Scheduled Crawls (Showing last 50 crawls)</h2>
+  <table id="crawlTable">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Created At</th>
+        <!-- <th>Minimum Date</th> -->
+        <th>Include Never Processed</th>
+        <th>Status</th>
+        <th>Finished At</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
-      
+  <script>
+    let updateInterval = null;
+    let timeInterval = null;
+    let firstTime = true;
+    let totalRecords = 0;
 
-      document.getElementById("crawlForm").onsubmit = async (event) => {
-        event.preventDefault();
-        const crawlDate = document.getElementById("crawlDate").value;
-        const includeNeverProcessed = document.getElementById(
-          "includeNeverProcessed",
-        ).checked;
+    document.getElementById("crawlForm").onsubmit = async (event) => {
+      event.preventDefault();
+      const crawlDate = document.getElementById("crawlDate").value;
+      const includeNeverProcessed = document.getElementById(
+        "includeNeverProcessed",
+      ).checked;
 
-        if (!crawlDate && !includeNeverProcessed) {
+      if (!crawlDate && !includeNeverProcessed) {
+        document.getElementById("response").innerText =
+          "Please select a date or check the checkbox.";
+        return;
+      }
+
+      const requestBody = {
+        minimum_date: crawlDate || null,
+        include_never_processed: includeNeverProcessed,
+      };
+
+      try {
+        const response = await fetch("/api/v1/crawls", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (response.status === 409) {
+          const data = await response.json();
           document.getElementById("response").innerText =
-            "Please select a date or check the checkbox.";
+            "Error: " + data.detail;
           return;
         }
 
-        const requestBody = {
-          minimum_date: crawlDate || null,
-          include_never_processed: includeNeverProcessed,
-        };
-
-        try {
-          const response = await fetch("/api/v1/crawls", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(requestBody),
-          });
-
-          if (response.status === 409) {
-            const data = await response.json();
-            document.getElementById("response").innerText =
-              "Error: " + data.detail;
-            return;
-          }
-
-          if (!response.ok) {
-            throw new Error("Network response was not ok");
-          }
-
-          const data = await response.json();
-          document.getElementById("response").innerText =
-            "Response: " + data.message;
-          loadScheduledCrawls();
-        } catch (error) {
-          document.getElementById("response").innerText =
-            "Error scheduling crawl: " + error;
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
         }
-      };
 
+        const data = await response.json();
+        document.getElementById("response").innerText =
+          "Response: " + data.message;
+        loadScheduledCrawls();
+      } catch (error) {
+        document.getElementById("response").innerText =
+          "Error scheduling crawl: " + error;
+      }
+    };
 
+    async function startCrawl() {
+      firstTime = true;
+      const response = await fetch("/api/v1/crawls/startCrawl", {
+        method: "POST",
+      });
 
-      async function startCrawl() {
-
-          firstTime = true;
-          const response = await fetch("/api/v1/crawls/startCrawl", {
-              method: "POST",
-          });
-
-          if (!response.ok) {
-              throw new Error("Network response was not ok " + response.statusText);
-          }
-          else{
-            // Start updating record count every 1.5 seconds
-            fetchElapsedTime()
-            setTimeout(updateInterval = setInterval(updateRecordCount, 1500), 5000)
-          }
-
-          const data = await response.json();
-          console.log(data);
-
-          
-
-          return data;
+      if (!response.ok) {
+        throw new Error("Network response was not ok " + response.statusText);
+      } else {
+        // Start updating record count every 1.5 seconds
+        setTimeout(timeInterval = setInterval(fetchElapsedTime, 10000), 5000)
+        setTimeout(updateInterval = setInterval(updateRecordCount, 10000), 5000)
       }
 
-      async function stopCrawl() {
-          const response = await fetch("/api/v1/crawls/stopCrawl", {
-              method: "POST",
-          });
+      const data = await response.json();
+      console.log(data);
 
-          if (!response.ok) {
-              throw new Error("Network response was not ok " + response.statusText);
-          }
+      return data;
+    }
 
-          const data = await response.json();
-          console.log(data);
+    async function stopCrawl() {
+      const response = await fetch("/api/v1/crawls/stopCrawl", {
+        method: "POST",
+      });
 
-          // Stop updating record count
-          if (updateInterval) {
-              clearInterval(updateInterval);
-              updateInterval = null;
-          }
+      if (!response.ok) {
+        throw new Error("Network response was not ok " + response.statusText);
+      }
 
-           // Stop fetching elapsed time (optional)
-           clearInterval(fetchInterval);
+      const data = await response.json();
+      console.log(data);
 
+      // Stop updating record count
+      if (updateInterval) {
+        clearInterval(updateInterval);
+        updateInterval = null;
+      }
+
+      if (timeInterval) {
+        clearInterval(timeInterval);
+        timeInterval = null;
+      }
+
+      const timeTakenElement = document.getElementById('timeTaken');
+      if (timeTakenElement) {
+        timeTakenElement.innerHTML = `Estimated Time Remaining: 0s`;
+      } else {
+        console.error('Element with id "timeTaken" not found.');
+      }
+
+      return data;
+    }
+
+    async function fetchElapsedTime() {
+      try {
+        const response = await fetch("/api/v1/crawls/getElapsedTime", {
+          method: "POST",
+        });
+        const data = await response.json();
+        if (data.elapsedTime > 0) {
           const timeTakenElement = document.getElementById('timeTaken');
           if (timeTakenElement) {
-              timeTakenElement.innerHTML = `Estimated Time Remaining: 0s`;
+            let elapsedTimeSeconds = Math.round(data.elapsedTime * totalRecords * 5000 * 1.2);
+
+            let formattedDuration = formatDuration(elapsedTimeSeconds);
+
+            timeTakenElement.innerHTML = `Estimated Time Remaining: ${formattedDuration}`;
           } else {
-              console.error('Element with id "timeTaken" not found.');
+            console.error('Element with id "timeTaken" not found.');
           }
+        } else {
+          setTimeout(fetchElapsedTime, 10000)
+        }
 
-        return data;
+      } catch (error) {
+        console.error('Error fetching elapsed time:', error);
       }
+    }
 
-      
-      let fetchInterval;
-
-      async function fetchElapsedTime() {
-        debugger
-          try {
-              const response = await fetch("/api/v1/crawls/getElapsedTime", {
-                  method: "POST",
-              });
-              const data = await response.json();
-              if (data.elapsedTime>0){
-                const timeTakenElement = document.getElementById('timeTaken');
-                if (timeTakenElement) {
-                    let elapsedTimeSeconds = Math.round(data.elapsedTime * totalRecords * 5000 * 1.2);
-
-                    let formattedDuration = formatDuration(elapsedTimeSeconds);
-
-                    timeTakenElement.innerHTML = `Estimated Time Remaining: ${formattedDuration}`;
-                } else {
-                    console.error('Element with id "timeTaken" not found.');
-                }
-              }
-              else{
-                setTimeout(fetchElapsedTime, 3000)
-              }
-              
-          } catch (error) {
-              console.error('Error fetching elapsed time:', error);
-          }
-      }
-        
-
-      function formatDuration(elapsedTimeSeconds) {
+    function formatDuration(elapsedTimeSeconds) {
       let weeks = Math.floor(elapsedTimeSeconds / (60 * 60 * 24 * 7));
       elapsedTimeSeconds -= weeks * (60 * 60 * 24 * 7);
       let days = Math.floor(elapsedTimeSeconds / (60 * 60 * 24));
@@ -206,72 +240,70 @@
       return `${weeks} weeks, ${days} days, ${hours} hours, ${minutes} minutes, ${seconds} seconds`;
     }
 
-      async function updateRecordCount() {
-          try {
-              const response = await fetch("/api/v1/crawls/getRecordCount", {
-                  method: "POST",
-              });
-              const data = await response.json();
-              let recordsProcessed = 0;
+    async function updateRecordCount() {
+      try {
+        const response = await fetch("/api/v1/crawls/getRecordCount", {
+          method: "POST",
+        });
+        const data = await response.json();
+        let recordsProcessed = 0;
 
-              if (firstTime) {
-                  totalRecords = data.count;
-                  if (data.count > 0) {
-                      firstTime = false;
-                  }
-              } else {
-                  debugger
-                  recordsProcessed = totalRecords - data.count;
-              }
-
-              var element = document.getElementById('recordCount');
-              if (element) {
-                  element.innerHTML = `${recordsProcessed} of ${totalRecords} Records Processed `;
-              } else {
-                  console.error('Element with id "recordCount" not found.');
-              }
-          } catch (error) {
-              console.error('Error fetching record count:', error);
+        if (firstTime) {
+          totalRecords = data.count;
+          if (data.count > 0) {
+            firstTime = false;
           }
-      }
-
-      async function loadScheduledCrawls() {
-        // Stop updating record count
-        if (updateInterval) {
-              clearInterval(updateInterval);
-              updateInterval = null;
-          }
-        try {
-          const response = await fetch("/api/v1/crawls", {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          });
-          const data = await response.json();
-          const crawlTableBody = document
-            .getElementById("crawlTable")
-            .getElementsByTagName("tbody")[0];
-          crawlTableBody.innerHTML = "";
-          data.forEach((crawl) => {
-            const row = document.createElement("tr");
-            
-              // <td>${crawl.minimum_date}</td>
-            row.innerHTML = `
-              <td>${crawl.id}</td>
-              <td>${crawl.created_at}</td>
-              <td>${crawl.include_never_processed ? "Yes" : "No"}</td>
-              <td>${crawl.status}</td>
-              <td>${crawl.finished_at ?? "N/A"}</td>
-            `;
-            crawlTableBody.appendChild(row);
-          });
-        } catch (error) {
-          console.error("Error loading scheduled crawls:", error);
+        } else {
+          recordsProcessed = totalRecords - data.count;
         }
-      }
 
-      window.onload = loadScheduledCrawls;
-    </script>
-  </body>
+        var element = document.getElementById('recordCount');
+        if (element) {
+          element.innerHTML = `${recordsProcessed} of ${totalRecords} Records Processed `;
+        } else {
+          console.error('Element with id "recordCount" not found.');
+        }
+      } catch (error) {
+        console.error('Error fetching record count:', error);
+      }
+    }
+
+    async function loadScheduledCrawls() {
+      // Stop updating record count
+      if (updateInterval) {
+        clearInterval(updateInterval);
+        updateInterval = null;
+      }
+      try {
+        const response = await fetch("/api/v1/crawls", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        const data = await response.json();
+        const crawlTableBody = document
+          .getElementById("crawlTable")
+          .getElementsByTagName("tbody")[0];
+        crawlTableBody.innerHTML = "";
+        data.forEach((crawl) => {
+          const row = document.createElement("tr");
+          // <td>${crawl.minimum_date}</td>
+          row.innerHTML = `
+            <td>${crawl.id}</td>
+            <td>${crawl.created_at}</td>
+            <td>${crawl.include_never_processed ? "Yes" : "No"}</td>
+            <td>${crawl.status}</td>
+            <td>${crawl.finished_at ?? "N/A"}</td>
+          `;
+          crawlTableBody.appendChild(row);
+        });
+      } catch (error) {
+        console.error("Error loading scheduled crawls:", error);
+      }
+    }
+
+    window.onload = loadScheduledCrawls;
+  </script>
+</body>
 </html>

@@ -424,26 +424,21 @@ class QueueRepository:
     #             return row[0] if row else 0
             
 
-    async def count_input_rows(
-    self, conn: psycopg.AsyncConnection | None = None
-    ) -> int:
-        async def _set_success(conn: psycopg.AsyncConnection) -> int:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """
-                    SELECT COUNT(*) 
-                    FROM url_queue 
-                    WHERE status != 'done'
-                    """
-                )
-                row = await cur.fetchone()
-                return row[0] if row else 0
-
-        if conn is None:
-            async with self.transaction() as conn:
-                return await _set_success(conn)
-        return await _set_success(conn)      
-
+    async def count_input_rows(self) -> int:
+        async with self.mssql_connection_pool.acquire() as conn:
+                async with conn.cursor() as cursor:
+                    await cursor.execute(
+                        """
+                        SELECT COUNT(*) 
+                        FROM CRMWebScraping 
+                        WHERE TimeProcessed IS NULL
+                        """
+                    )
+                    row = await cursor.fetchone()
+                    # Since cursor.fetchone() returns a tuple, we need to get the first element
+                    count = row[0] if row else 0
+                    return count
+                
     async def schedule_crawl(
         self, crawl: CreateCrawl, conn: psycopg.AsyncConnection | None = None
     ):
@@ -478,10 +473,9 @@ class QueueRepository:
         async with self.mssql_connection_pool.acquire() as conn:
             async with conn.cursor() as cursor:
 
-                # Check if result object has company_name property
-                company_name = result.company_name if hasattr(result, 'company_name') else None
 
-                # Check if result object has other properties similarly
+                # Check if result object has other properties
+                company_name = result.company_name if hasattr(result, 'company_name') else None
                 input_id = result.input_id if hasattr(result, 'input_id') else None
                 url = result.url if hasattr(result, 'url') else None
                 address = result.address if hasattr(result, 'address') else None
@@ -529,7 +523,21 @@ class QueueRepository:
                     f"""
                     UPDATE CRMWebScraping
                     SET TimeProcessed = SYSUTCDATETIME()
-                    WHERE ScrapingID IN ({input_ids_str});
+                    WHERE ScrapingID IN ({input_ids_str}) AND TimeProcessed IS NULL;
+                """
+                )
+                await conn.commit()
+
+    async def update_time_processed(self, input_id: int):
+        
+        async with self.mssql_connection_pool.acquire() as conn:
+            # input_ids_str = ",".join(map(str, input_ids))
+            async with conn.cursor() as cursor:
+                await cursor.execute(
+                    f"""
+                    UPDATE CRMWebScraping
+                    SET TimeProcessed = SYSUTCDATETIME()
+                    WHERE ScrapingID = ({input_id});
                 """
                 )
                 await conn.commit()

@@ -56,7 +56,7 @@ async def crawl_scheduler(repository: QueueRepository, stop_flag: asyncio.Event)
             if finished:
                 logger.info(f"Crawl {crawl.id} finished!")
 
-                await repository.update_time_processed_datetimes(crawl.id)
+                # await repository.update_time_processed_datetimes(crawl.id)
 
                 async with repository.transaction():
                     await repository.set_crawl_status(crawl.id, "done")
@@ -66,7 +66,7 @@ async def crawl_scheduler(repository: QueueRepository, stop_flag: asyncio.Event)
                     stop_flag.set()
 
     if stop_flag.is_set() and crawl is not None:
-        await repository.update_time_processed_datetimes(crawl.id)
+        # await repository.update_time_processed_datetimes(crawl.id)
         await repository.set_crawl_status(crawl.id, "done")
         await repository.set_crawl_finished_at_to_now(crawl.id)
         await repository.clear_queue()

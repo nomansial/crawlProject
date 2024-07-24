@@ -8,3 +8,6 @@ uvicorn[standard]
 pydantic
 pydantic-settings
 aioodbc
+requests
+pandas
+

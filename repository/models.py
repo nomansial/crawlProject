@@ -65,3 +65,11 @@ class CrawlResult:
     phone_number: str | None = None
     google_places_id: str | None = None
     position: str | None = None
+    #adding job description here 
+    description: str | None = None
+    #update 7/20/2024 added latitude , longitude
+    lat:float |None=None
+    long:float|None=None
+    # Added property for Job Description 7/23/2024
+    job_description: str| None = None
+    

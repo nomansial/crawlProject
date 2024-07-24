@@ -347,6 +347,9 @@ class QueueRepository:
                 return await _set_crawl_finished_at_to_now(conn)
 
         return await _set_crawl_finished_at_to_now(conn)
+    
+
+    
 
     async def is_crawl_finished(self, conn: psycopg.AsyncConnection | None = None):
         async def _is_crawl_finished(conn: psycopg.AsyncConnection):
@@ -393,6 +396,59 @@ class QueueRepository:
 
                 rows = await cursor.fetchall()
                 return [InputRow(*row) for row in rows]
+            
+    # added function remove redundant data 7/21/2024 #updated 7/23/2024
+    async def remove_duplicate_records(
+        self
+    ) :
+        async with self.mssql_connection_pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                await cursor.execute(
+                       """
+                       WITH MaxDateTimeCTE AS (
+                        SELECT
+		                    GooglePlacesID,
+		                    CompanyName,
+                            JobDescription,
+                            MAX([DateTime]) AS MaxDateTime
+                        FROM 
+                            CRMWebScrapingResults
+                        GROUP BY 
+                            JobDescription,GooglePlacesID,CompanyName
+                                    )
+
+                        DELETE T
+                        FROM CRMWebScrapingResults T
+                        LEFT JOIN MaxDateTimeCTE CTE
+                        ON T.GooglePlacesID = CTE.GooglePlacesID
+                        AND T.CompanyName = CTE.CompanyName
+                        AND T.JobDescription = CTE.JobDescription
+                        AND T.[DateTime] = CTE.MaxDateTime
+                        WHERE CTE.JobDescription IS NULL;
+                        """
+                    )
+                
+    # added funnction to clean job description 7/23/2024
+    async def clean_job_description(
+        self
+    ) :
+        async with self.mssql_connection_pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                await cursor.execute(
+                        """
+                        UPDATE [CRMWebScrapingResults]
+                        SET JobDescription= 
+                            CASE 
+                                WHEN LEFT(JobDescription, 1) = CHAR(13) THEN LTRIM(SUBSTRING(JobDescription, PATINDEX('%[^' + CHAR(13) + ' ' + CHAR(10) + ']%', JobDescription), LEN(JobDescription)))
+                                WHEN LEFT(JobDescription, 1) = CHAR(10) THEN LTRIM(SUBSTRING(JobDescription, PATINDEX('%[^' + CHAR(10) + ' ' + CHAR(13) + ']%', JobDescription), LEN(JobDescription)))
+                                ELSE LTRIM(JobDescription)
+                            END;
+
+                        """
+                    )
+                
+                
+                
             
     # async def count_input_rows(
     # self,
@@ -483,10 +539,21 @@ class QueueRepository:
                 google_places_id = result.google_places_id if hasattr(result, 'google_places_id') else None
                 position = result.position if hasattr(result, 'position') else None
 
+                # #job description 7/19/2024
+                description = result.description if hasattr(result,'description') else None
+
+                # added job_description 7/23/2024
+                job_description = result.job_description if hasattr(result,'job_description') else None
+                
+
+                #update added lat long 7/20/2024
+                lat = result.lat if hasattr(result,'lat') else None
+                long = result.long if hasattr(result,'long') else None
+                # updated: > added job description after position
                 await cursor.execute(
                     """
-                    INSERT INTO CRMWebScrapingResults (ScrapingID, DateTime, CompanyName, url, Address, Phone, GooglePlacesID, Position, SearchSite, SearchTerm,RecordLimit)
-                    VALUES (?, GETDATE(), ?, ?, ?, ?, ?, ?,?,?,?)
+                    INSERT INTO CRMWebScrapingResults (ScrapingID, DateTime, CompanyName, url, Address, Phone,lat,long, GooglePlacesID, Position,Description, SearchSite, SearchTerm,RecordLimit, JobDescription)
+                    VALUES (?, GETDATE(), ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?)
                 """,
                     (
                         input_id,
@@ -494,14 +561,39 @@ class QueueRepository:
                         url,
                         address,
                         phone_number,
+                        lat,
+                        long,
                         google_places_id,
                         position,
+                        description,
                         metadata.get('search_website'),
                         metadata.get('search_term'),
                         metadata.get('records_left'),
+                        # added job_description 7/23/2024
+                        job_description
                     ),
                 )
                 await conn.commit()
+                # Original insert command
+                # await cursor.execute(
+                #     """
+                #     INSERT INTO CRMWebScrapingResults (ScrapingID, DateTime, CompanyName, url, Address, Phone, GooglePlacesID, Position, SearchSite, SearchTerm,RecordLimit)
+                #     VALUES (?, GETDATE(), ?, ?, ?, ?, ?, ?,?,?,?)
+                # """,
+                #     (
+                #         input_id,
+                #         company_name,
+                #         url,
+                #         address,
+                #         phone_number,
+                #         google_places_id,
+                #         position,
+                #         metadata.get('search_website'),
+                #         metadata.get('search_term'),
+                #         metadata.get('records_left'),
+                #     ),
+                # )
+                # await conn.commit()
 
     async def update_time_processed_datetimes(self, crawl_id: int):
         async with self.transaction() as conn:

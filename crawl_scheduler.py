@@ -33,6 +33,10 @@ async def crawl_scheduler(repository: QueueRepository, stop_flag: asyncio.Event)
                     async with repository.transaction():
                         await repository.set_crawl_status(crawl.id, "done")
                         await repository.set_crawl_finished_at_to_now(crawl.id)
+                        # added remove_duplicate_records in db_repository 7/21/2024
+                        await repository.remove_duplicate_records()
+                        # added clean_job_description in db_repository 7/21/2024
+                        await repository.clean_job_description()
                     crawl.status = "done"
                     stop_flag.set()
                     continue
@@ -61,14 +65,24 @@ async def crawl_scheduler(repository: QueueRepository, stop_flag: asyncio.Event)
                 async with repository.transaction():
                     await repository.set_crawl_status(crawl.id, "done")
                     await repository.set_crawl_finished_at_to_now(crawl.id)
+                    # added remove_duplicate_records in db_repository 7/21/2024
+                    await repository.remove_duplicate_records()
+                    # added clean_job_description in db_repository 7/21/2024
+                    await repository.clean_job_description()
                     await repository.clear_queue()
                     crawl.status = "done"
                     stop_flag.set()
 
     if stop_flag.is_set() and crawl is not None:
+        # added clean_job_description in db_repository 7/21/2024
+        await repository.clean_job_description()
         # await repository.update_time_processed_datetimes(crawl.id)
         await repository.set_crawl_status(crawl.id, "done")
         await repository.set_crawl_finished_at_to_now(crawl.id)
+        # added remove_duplicate_records in db_repository 7/21/2024
+        await repository.remove_duplicate_records()
+        await repository.clean_job_description()
+        
         await repository.clear_queue()
         crawl.status = "done"
 
@@ -108,7 +122,8 @@ def map_input_row_to_job(row: InputRow, crawl_id: int) -> CreateJob | None:
     if row.website == "Indeed":
         location = row.uule.replace(",", ", ")
         search_term = row.search_term
-        if row.gl == "us":
+        # Removed Exception due to upper case 7/19/2024
+        if row.gl.lower() == "us":
             url = "https://www.indeed.com/?hl=en&co=us&countrySelector=1"
         else:
             url = f"https://{row.gl}.indeed.com"

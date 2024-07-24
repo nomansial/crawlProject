@@ -4,12 +4,13 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
-
+from config import settings
 from logger import logger
 from repository.models import CrawlResult, CreateJob, Job
 from request_processor.request_handlers.handler import (
     UrlHandler,
 )
+from . import google_places_handler
 
 # from job_postings_crawler.logger import logger
 # from job_postings_crawler.repository.models import CrawlResult, CreateJob, Job
@@ -143,13 +144,46 @@ class DetailsHandler(UrlHandler):
         if position_node:
             position = position_node.text.strip()
 
+        #adding job description 7/19/2024
+        job_description_node = soup.find("div",id="jobDescriptionText")
+
+        job_description = None
+        if job_description_node:
+            job_description = job_description_node.get_text(separator='\n')
+        
+        # Fixed Exception of compaddress 7/21/2024
+        compaddress = None
+        # Fixed Exception on placeId, latitude, longitude 7/23/2024
+        placeid = None
+        latitude = None
+        longitude = None
+        # update 7/20/2024 Getting Lat Long see further update in models (crawlResult)
+
+        googleapikey = settings.GOOGLE_API_KEY
+        location_data = google_places_handler.get_google_place_id(api_key=googleapikey,company_name=name)
+        # Fixed Exception of location_data due to None 7/21/2024
+        if location_data is not None:
+            placeid = location_data[0]
+            latitude = location_data[1]
+            longitude = location_data[2]
+            compaddress = location_data[3]
+
+#add job description to results and directly to mssql
+# added joib desceription 7/19/2024
         return [
             CrawlResult(
                 input_id=job.input_id,
                 crawl_id=job.crawl_id,
                 url=url,
                 company_name=name,
-                address=address,
+                address=compaddress,
                 position=position,
+                description= "",
+                google_places_id=str(placeid),
+                # fixed exception 7/23/2024
+                lat = float(latitude) if latitude is not None else None,
+                long = float(longitude) if longitude is not None else None,
+                # added job_description 7/23/2024
+                job_description= job_description
             )
         ]

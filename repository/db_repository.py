@@ -405,26 +405,17 @@ class QueueRepository:
             async with conn.cursor() as cursor:
                 await cursor.execute(
                        """
-                       WITH MaxDateTimeCTE AS (
-                        SELECT
-		                    GooglePlacesID,
-		                    CompanyName,
-                            JobDescription,
-                            MAX([DateTime]) AS MaxDateTime
-                        FROM 
-                            CRMWebScrapingResults
-                        GROUP BY 
-                            JobDescription,GooglePlacesID,CompanyName
-                                    )
+                        WITH CTE AS (
+                            SELECT 
+                                CompanyName,
+                                [DateTime],  -- Include other columns if needed to determine duplicates
+                                ROW_NUMBER() OVER (PARTITION BY CompanyName ORDER BY [DateTime] DESC) AS RowNumber
+                            FROM 
+                                CRMWebScrapingResults
+                        )
 
-                        DELETE T
-                        FROM CRMWebScrapingResults T
-                        LEFT JOIN MaxDateTimeCTE CTE
-                        ON T.GooglePlacesID = CTE.GooglePlacesID
-                        AND T.CompanyName = CTE.CompanyName
-                        AND T.JobDescription = CTE.JobDescription
-                        AND T.[DateTime] = CTE.MaxDateTime
-                        WHERE CTE.JobDescription IS NULL;
+                        DELETE FROM CTE
+                        WHERE RowNumber > 1;
                         """
                     )
                 
@@ -446,39 +437,7 @@ class QueueRepository:
 
                         """
                     )
-                
-                
-                
-            
-    # async def count_input_rows(
-    # self,
-    # minimum_date: datetime.datetime | None = None,
-    # include_never_processed: bool = False,
-    # ) -> int:
-    #     async with self.mssql_connection_pool.acquire() as conn:
-    #         async with conn.cursor() as cursor:
-    #             query = """
-    #                 SELECT COUNT(*) 
-    #                 FROM [ActiveM_DemoERP].[dbo].[CRMWebScraping]
-    #             """
-    #             if minimum_date and include_never_processed:
-    #                 query += " WHERE TimeProcessed IS NULL OR TimeProcessed >= ?"
-    #                 await cursor.execute(query, (minimum_date,))
-    #             elif minimum_date:
-    #                 query += " WHERE TimeProcessed >= ?"
-    #                 await cursor.execute(query, (minimum_date,))
-    #             elif include_never_processed:
-    #                 query += " WHERE TimeProcessed IS NULL"
-    #                 await cursor.execute(query)
-    #             else:
-    #                 # This case should be handled at the endpoint level, but added for safety
-    #                 raise ValueError(
-    #                     "Either minimum_date must be set or include_never_processed must be true."
-    #                 )
-
-    #             row = await cursor.fetchone()
-    #             return row[0] if row else 0
-            
+                 
 
     async def count_input_rows(self) -> int:
         async with self.mssql_connection_pool.acquire() as conn:
@@ -574,26 +533,6 @@ class QueueRepository:
                     ),
                 )
                 await conn.commit()
-                # Original insert command
-                # await cursor.execute(
-                #     """
-                #     INSERT INTO CRMWebScrapingResults (ScrapingID, DateTime, CompanyName, url, Address, Phone, GooglePlacesID, Position, SearchSite, SearchTerm,RecordLimit)
-                #     VALUES (?, GETDATE(), ?, ?, ?, ?, ?, ?,?,?,?)
-                # """,
-                #     (
-                #         input_id,
-                #         company_name,
-                #         url,
-                #         address,
-                #         phone_number,
-                #         google_places_id,
-                #         position,
-                #         metadata.get('search_website'),
-                #         metadata.get('search_term'),
-                #         metadata.get('records_left'),
-                #     ),
-                # )
-                # await conn.commit()
 
     async def update_time_processed_datetimes(self, crawl_id: int):
         async with self.transaction() as conn:

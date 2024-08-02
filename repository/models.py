@@ -72,4 +72,10 @@ class CrawlResult:
     long:float|None=None
     # Added property for Job Description 7/23/2024
     job_description: str| None = None
+    #added property for record count 7/31/2024
+    record_count: int| None = None
+    #added property for duplicate records with cache table 7/31/2024
+    duplicate_record_count: int |None = None
+
+
     

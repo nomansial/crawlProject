@@ -58,59 +58,254 @@
     #timeTaken {
       font-weight: normal;
     }
+    .tab-container {
+      display: flex;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 20px;
+    }
+    .tab {
+      padding: 10px 20px;
+      background-color: rgb(123, 123, 160);
+      color: white;
+      font-weight: bold;
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+      cursor: pointer;
+      margin-right: 5px;
+      position: relative;
+      top: 1px;
+    }
+    .tab.active {
+      background-color: #1512a8;
+      top: 0;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .loader {
+            display: none;
+            font-size: 20px;
+        }
+    .loaded {
+      display: none;
+      font-size: 20px;
+    }
   </style>
+   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
-  <h1>New Crawl</h1>
-  <form id="crawlForm">
-    <!-- Form elements here -->
-    <!-- <div>
-      <label for="crawlDate">Minimum Crawl Date:</label>
-      <input type="date" id="crawlDate" name="crawlDate" />
-    </div> -->
-    <!-- <div>
-      <input
-        type="checkbox"
-        id="includeNeverProcessed"
-        name="includeNeverProcessed"
-      />
-      <label for="includeNeverProcessed"
-        >Include rows that have never been processed (NULL
-        TimeProcessed)</label
-      >
-    </div> -->
-    <!-- <button type="submit">Schedule Crawl</button> -->
-  </form>
-  <button id="startButton" onclick="startCrawl()">Start</button>
-  <button id="stopButton" class="disabled" onclick="stopCrawl()" disabled>Stop</button>
-
-  <div id="startedAtContainer" class="statusContainer">
-    <strong>Started At:</strong>
-    <div id="startedAt" style="margin-left: 10px;"></div>
+  <div class="tab-container">
+    <div class="tab active" onclick="showTab(event, 'crawl')">New Crawl</div>
+    <div class="tab" onclick="showTab(event, 'transfer')">Transfer Data to CRMSuspectInput Cache</div>
+    <div class="tab" onclick="showTab(event, 'removeduplicateinsuspect')">Remove Duplicates in CRMSuspectInput Cache</div>
   </div>
-  <div id="currentStatusContainer" class="statusContainer">
-    <strong>Current Crawl Status:</strong>
-    <div id="recordCount" style="margin-left: 10px;"></div>
-  </div>
-  <div id="timeTaken" class="statusContainer"></div>
-  <div id="response"></div>
 
-  <h2>Last 50 Crawls</h2>
-  <table id="crawlTable">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Created At</th>
-        <!-- <th>Minimum Date</th> -->
-        <th>Include Never Processed</th>
-        <th>Status</th>
-        <th>Finished At</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <div id="crawl" class="tab-content active">
+    <h1>New Crawl</h1>
+    <form id="crawlForm">
+      <!-- Form elements here -->
+      <!-- <div>
+        <label for="crawlDate">Minimum Crawl Date:</label>
+        <input type="date" id="crawlDate" name="crawlDate" />
+      </div> -->
+      <!-- <div>
+        <input
+          type="checkbox"
+          id="includeNeverProcessed"
+          name="includeNeverProcessed"
+        />
+        <label for="includeNeverProcessed"
+          >Include rows that have never been processed (NULL
+          TimeProcessed)</label
+        >
+      </div> -->
+      <!-- <button type="submit">Schedule Crawl</button> -->
+    </form>
+    <button id="startButton" onclick="startCrawl()">Start</button>
+    <button id="stopButton" class="disabled" onclick="stopCrawl()" disabled>Stop</button>
+
+    <div id="startedAtContainer" class="statusContainer">
+      <strong>Started At:</strong>
+      <div id="startedAt" style="margin-left: 10px;"></div>
+    </div>
+    <div id="currentStatusContainer" class="statusContainer">
+      <strong>Current Crawl Status:</strong>
+      <div id="recordCount" style="margin-left: 10px;"></div>
+    </div>
+    <div id="timeTaken" class="statusContainer"></div>
+    <div id="response"></div>
+
+    <h2>Last 50 Crawls</h2>
+    <table id="crawlTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Created At</th>
+          <!-- <th>Minimum Date</th> -->
+          <th>Include Never Processed</th>
+          <th>Status</th>
+          <th>Finished At</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="transfer" class="tab-content">
+    <h1>Transfer Data to CRMSuspectInput Cache</h1>
+
+    <button id="startTransfer" onclick="startTransfer()">Start Transfer</button>
+    <div id="loadertransfer" class="loader">Please wait...</div>
+    <div id="loadedtransfer" class="loaded">Data Transfer Complete!</div>
+    <table class="table-responsive" id="stats" style="font-size: small;">
+      <thead>
+        <th><strong>Record Counts in CRMWebScrapingOutput:<strong></th>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div id="totalRecordResultsTable" class="statusContainer">
+              <strong>Total Record Count in CRMWebScrapingOutput:</strong>
+              <div id="totalRecordResultsbt" style="margin-left: 10px;"></div>
+            </div>
+            <div id="currentStatusContainer" class="statusContainer">
+              <strong>Number of records in CRMSuspectInput_Cache that are in CRMWebScrapingOutput:</strong>
+              <div id="duplicateCountCacheTablebt" style="margin-left: 10px;"></div>
+            </div>
+            <div id="totalnonduplicaterecord" class="statusContainer">
+              <strong>Number of records that will be transfered to CRMSuspectInput_Cache: </strong>
+              <div id="finalResultCountbt" >
+                
+              </div>
+          </td>
+    
+        </tr>
+      </tbody>
+    </table>
+    <h4>All records in CRMWebScrapingResults</h4>
+    <table id="crawlResultTable" class="table-responsive" style="font-size: x-small;">
+      <thead>
+        <tr>
+          <th>Display Num</th>
+            <th>Search Source</th>
+            <th>Search Term</th>
+          <!-- <th>ScrapingResultsId</th> -->
+          <th>Company Name</th>
+          <th>Address</th>
+          <!-- <th>Minimum Date</th> -->
+          <th>Url</th>
+         
+          <th>Places ID</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    </div>
+    <!-- Total - Duplicate -->
+    
+    
+    <!-- Content for transferring data goes here -->
+  </div>
+  <div id="removeduplicateinsuspect" class="tab-content">
+    <h1>Remove Duplicates</h1>
+
+    <button id="removeDuplicateCRMSuspectCache" onclick="removeDuplicateCRMSuspectCache()">Remove Duplicates</button>
+    <div id="loadercrmsuspect" class="loader">Please wait...</div>
+    <div id="loadedcrmsuspect" class="loaded"></div>
+
+    <table class="table-responsive" id="stats" style="font-size: small;">
+      <thead>
+        <th><strong>Record Counts in CRMSuspectinput_Cache: <strong></th>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div id="totalRecordResultsCacheTable" class="statusContainer">
+              <strong>Total Records :</strong>
+              <div id="totalRecordCacheResultsBRD" style="margin-left: 10px;"></div>
+            </div>
+            <div id="currentStatusContainer" class="statusContainer">
+              <strong>Total Duplicate Records :</strong>
+              <div id="duplicateCacheTableBRD" style="margin-left: 10px;"></div>
+            </div>
+            <div id="totalnonduplicaterecord" class="statusContainer">
+              <strong>Total Unique Records :</strong>
+              <div id="finalResultCountCacheBRD" >
+                
+              </div>
+            </div>
+          </td>
+          <!-- <td><div id="totalRecordResultsCacheTable" class="statusContainer">
+            <strong>Total Records :</strong>
+            <div id="totalRecordCacheResultsARD" style="margin-left: 10px;"></div>
+          </div>
+          <div id="currentStatusContainer" class="statusContainer">
+            <strong>Total Duplicate Records :</strong>
+            <div id="duplicateCacheTableARD" style="margin-left: 10px;"></div>
+          </div>
+          <div id="totalnonduplicaterecord" class="statusContainer">
+            <strong>Total Unique Records :</strong>
+            <div id="finalResultCountCacheARD" >
+              
+            </div>
+          </div>
+          </td> -->
+        </tr>
+      </tbody>
+    </table>
+    
+
+    <h4>All Records in CRMSuspectinput_Cache</h4>
+    <!-- added table 7/31/2024 -->
+    <div class="table-responsive">
+      <table id="CRMSuspectInputCacheTable" style="font-size: x-small;">
+        <thead>
+          <tr>
+            <th>Display Num</th>
+            <th>Search Source</th>
+            <th>Search Term</th>
+            <!-- <th>InputId</th> -->
+            <!-- <th>ScrapingResultsId</th> -->
+            <th>CompanyName</th>
+            <th>Website</th>
+            <th>Address</th>
+            <th>GooglePlacesID</th>
+            <th>Position</th>
+            <!-- <th>Phone</th> -->
+            <!-- <th>Description</th> -->
+            <!-- <th>lat</th> -->
+            <!-- <th>long</th> -->
+            <!-- <th>JobDescription</th> -->
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    
+    
+    <!-- Content for transferring data goes here -->
+  </div>
 
   <script>
+    function showTab(event, tabName) {
+      // Hide all tab contents
+      const tabContents = document.querySelectorAll('.tab-content');
+      tabContents.forEach(content => content.classList.remove('active'));
+
+      // Remove active class from all tabs
+      const tabs = document.querySelectorAll('.tab');
+      tabs.forEach(tab => tab.classList.remove('active'));
+
+      // Show the selected tab content
+      document.getElementById(tabName).classList.add('active');
+
+      // Add active class to the selected tab
+      event.currentTarget.classList.add('active');
+    }
+
     let updateInterval = null;
     let isFinishedInterval = null;
     let timeInterval = null;
@@ -169,9 +364,11 @@
         document.getElementById("response").innerText =
           "Error scheduling crawl: " + error;
       }
-    };
+    };    
 
     async function startCrawl() {
+      // added to get updated crawls table 8/2/2024
+      setTimeout(loadScheduledCrawls, 10000)
       firstTime = true;
       const response = await fetch("/api/v1/crawls/startCrawl", {
         method: "POST",
@@ -195,9 +392,9 @@
       startButton.disabled = true;
       stopButton.classList.remove('disabled');
       stopButton.disabled = false;
-
-      return data;
-    }
+      loadScheduledCrawls()
+      return data;
+    }
 
     async function stopCrawl() {
       const response = await fetch("/api/v1/crawls/stopCrawl", {
@@ -299,8 +496,10 @@
         startButton.disabled = false;
         stopButton.classList.add('disabled');
         stopButton.disabled = true;
-      }
-    }
+        // added to get updated crawls table 8/2/2024
+        loadScheduledCrawls()
+      }
+    }
 
     function formatDuration(elapsedTimeSeconds) {
       let weeks = Math.floor(elapsedTimeSeconds / (60 * 60 * 24 * 7));
@@ -381,6 +580,276 @@
       }
     }
 
+    
+    // added startTransfer function 7/28/2024 update 7/31/2024
+    async function startTransfer(){
+      const startTransferButton = document.getElementById('startTransfer');
+      startTransferButton.classList.add('disabled');
+      startTransferButton.disabled = true;
+      document.getElementById('loadertransfer').style.display = 'block';
+      setTimeout(async function(){
+        const response = await fetch ("/api/v1/crawls/startTransfer", {
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error("Network response was not ok " + response.statusText);
+      }
+
+      const data = await response.json();
+      document.getElementById('loadertransfer').style.display = 'none';
+      document.getElementById('loadedtransfer').style.display = 'block';
+      startTransferButton.classList.remove('disabled');
+      startTransferButton.disabled = false;
+      // loadCRMWebScrapingResultsAT();
+      loadCRMSuspectInputCacheResults();
+      },2000);
+      //window.location.reload();
+      
+      
+
+    };
+
+    //added to remove duplicates from crmsuspectinputcache 7/31/2024
+    async function removeDuplicateCRMSuspectCache(){
+      const removeDuplicateButton = document.getElementById('removeDuplicateCRMSuspectCache');
+      removeDuplicateButton.classList.add('disabled');
+      removeDuplicateButton.disabled = true;
+      document.getElementById('loadercrmsuspect').style.display = 'block';
+      setTimeout(async function(){
+        const response = await fetch ("/api/v1/crawls/removeDuplicateCRMSuspectCache", {
+        method: "GET",
+      });
+      if (!response.ok) {
+        throw new Error("Network response was not ok " + response.statusText);
+      }
+
+      const data = await response.json();
+      console.log(data)
+      document.getElementById('loadercrmsuspect').style.display = 'none';
+      document.getElementById('loadedcrmsuspect').style.display = 'block';
+      document.getElementById("loadedcrmsuspect").innerText =
+          "Response: " + data.message; 
+      removeDuplicateButton.classList.remove('disabled');
+      removeDuplicateButton.disabled = false;
+      loadCRMWebScrapingResults();
+      loadCRMSuspectInputCacheResults();
+      },2000);
+      //window.location.reload();
+      
+      
+
+    };
+
+    //loading table on transfer tab 7/30/2024
+    async function loadCRMWebScrapingResults(){
+
+      try{
+        
+
+        const response = await fetch("/api/v1/crawls/getCRMScrapingResults", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        const data = await response.json();
+        console.log(data)
+        const crawlResultTableBody = document
+          .getElementById("crawlResultTable")
+          .getElementsByTagName("tbody")[0];
+          crawlResultTableBody.innerHTML = "";
+          var count = 0
+        data.forEach((crawlResult) => {
+          const row = document.createElement("tr");
+          count ++
+          // <td>${crawl.minimum_date}</td>
+          // <td>${crawlResult.input_id}</td>
+          row.innerHTML = `
+          <td>${count}</td>
+            <td>""</td>
+            <td>""</td>
+            
+            <td>${crawlResult.company_name}</td>
+             <td>${crawlResult.address}</td>
+            <td>${crawlResult.url}</td>
+            
+            <td>${crawlResult.google_places_id}</td>
+           
+          `;
+          crawlResultTableBody.appendChild(row);
+        });
+        const scrapingResultCount = data[0].record_count ?? 0;
+        const duplicateCountCache = data[0].duplicate_record_count ?? 0;
+        const totaldatatransferRecord = scrapingResultCount-duplicateCountCache
+        document.getElementById('totalRecordResultsbt').textContent = ` ${scrapingResultCount}`;
+        document.getElementById('duplicateCountCacheTablebt').textContent = ` ${duplicateCountCache}`;
+        document.getElementById('finalResultCountbt').textContent = `  ${totaldatatransferRecord}`;
+      }
+      catch(error){
+        console.error("Something went wrong in inserting data",error)
+      }
+    }
+    async function loadCRMWebScrapingResultsAT(){
+
+      try{
+        
+
+        const response = await fetch("/api/v1/crawls/getCRMScrapingResults", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        const data = await response.json();
+        console.log(data)
+        const crawlResultTableBody = document
+          .getElementById("crawlResultTable")
+          .getElementsByTagName("tbody")[0];
+          crawlResultTableBody.innerHTML = "";
+        var count = 0
+        data.forEach((crawlResult) => {
+          
+          const row = document.createElement("tr");
+          count ++
+          
+          // <td>${crawl.minimum_date}</td>
+          //<td>${crawlResult.input_id}</td>
+          row.innerHTML = `
+            <td>${count}</td>
+            <td>""</td>
+            <td>""</td>
+             <td>${crawlResult.company_name}</td>
+             <td>${crawlResult.address}</td>
+            <td>${crawlResult.url}</td>
+           
+            <td>${crawlResult.google_places_id}</td>
+           
+          `;
+          crawlResultTableBody.appendChild(row);
+        });
+        const scrapingResultCount = data[0].record_count ?? 0;
+        const duplicateCountCache = data[0].duplicate_record_count ?? 0;
+        const totaldatatransferRecord = scrapingResultCount-duplicateCountCache
+        document.getElementById('totalRecordResultsat').textContent = ` ${scrapingResultCount}`;
+        document.getElementById('duplicateCountCacheTableat').textContent = ` ${duplicateCountCache}`;
+        document.getElementById('finalResultCountat').textContent = ` ${totaldatatransferRecord}`;
+      }
+      catch(error){
+        console.error("Something went wrong in inserting data",error)
+      }
+    }
+
+    //loading table on remove duplicates tab 7/31/2024
+    //redundant function just for results before removal
+    async function loadCRMSuspectInputCacheResults(){
+
+      try{
+        
+
+        const response = await fetch("/api/v1/crawls/getCRMSuspectInputCacheResults", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        const data = await response.json();
+        debugger
+        console.log(data)
+        const CRMSuspectInputCacheTableBody = document
+          .getElementById("CRMSuspectInputCacheTable")
+          .getElementsByTagName("tbody")[0];
+          CRMSuspectInputCacheTableBody.innerHTML = "";
+        var count = 0
+        data.forEach((crawlResult) => {
+          const row = document.createElement("tr");
+          count ++
+          // <td>${crawl.minimum_date}</td>
+          row.innerHTML = `
+            <td>${count}</td>
+            <td>""</td>
+            <td>""</td>
+            <td>${crawlResult.company_name}</td>
+            <td>${crawlResult.url}</td>
+            <td>${crawlResult.address}</td>
+            <td>${crawlResult.google_places_id}</td>
+            <td>${crawlResult.position}</td>
+
+          `;
+          // <td>${crawlResult.input_id}</td>
+          // <td>${crawlResult.crawl_id}</td>
+          
+          // <td>${crawlResult.phone_number}</td>
+          // <td>${crawlResult.lat}</td>
+          // <td>${crawlResult.long}</td>
+          CRMSuspectInputCacheTableBody.appendChild(row);
+        });
+        const scrapingResultCount = data[0].record_count ?? 0;
+        const duplicateCountCache = data[0].duplicate_record_count ?? 0;
+        const totaldatatransferRecord = scrapingResultCount-duplicateCountCache
+        document.getElementById('totalRecordCacheResultsBRD').textContent = ` ${scrapingResultCount}`;
+        document.getElementById('duplicateCacheTableBRD').textContent = ` ${duplicateCountCache}`;
+        document.getElementById('finalResultCountCacheBRD').textContent = ` ${totaldatatransferRecord}`;
+      }
+      catch(error){
+        console.error("Something went wrong in inserting data",error)
+      }
+    }
+//redundant function just for results after removal ARD = after removing Duplicates
+    // 02-08-2024
+    //  async function loadCRMSuspectInputCacheResultsARD(){
+
+    //   try{
+        
+
+    //     const response = await fetch("/api/v1/crawls/getCRMSuspectInputCacheResults", {
+    //       method: "GET",
+    //       headers: {
+    //         "Content-Type": "application/json",
+    //       },
+    //     });
+    //     const data = await response.json();
+    //     debugger
+    //     console.log(data)
+    //     const CRMSuspectInputCacheTableBody = document
+    //       .getElementById("CRMSuspectInputCacheTable")
+    //       .getElementsByTagName("tbody")[0];
+    //       CRMSuspectInputCacheTableBody.innerHTML = "";
+    //     var count = 0
+    //     data.forEach((crawlResult) => {
+    //       const row = document.createElement("tr");
+    //       count ++
+    //       // <td>${crawl.minimum_date}</td>
+    //       row.innerHTML = `
+    //         <td>${count}</td>
+    //         <td>""</td>
+    //         <td>""</td>
+    //         <td>${crawlResult.company_name}</td>
+    //         <td>${crawlResult.url}</td>
+    //         <td>${crawlResult.address}</td>
+    //         <td>${crawlResult.google_places_id}</td>
+    //         <td>${crawlResult.position}</td>
+
+    //       `;
+    //       // <td>${crawlResult.input_id}</td>
+    //       // <td>${crawlResult.crawl_id}</td>
+          
+    //       // <td>${crawlResult.phone_number}</td>
+    //       // <td>${crawlResult.lat}</td>
+    //       // <td>${crawlResult.long}</td>
+    //       CRMSuspectInputCacheTableBody.appendChild(row);
+    //     });
+    //     const scrapingResultCount = data[0].record_count ?? 0;
+    //     const duplicateCountCache = data[0].duplicate_record_count ?? 0;
+    //     const totaldatatransferRecord = scrapingResultCount-duplicateCountCache
+    //     // document.getElementById('totalRecordCacheResultsARD').textContent = ` ${scrapingResultCount}`;        
+    //     // document.getElementById('duplicateCacheTableARD').textContent = ` ${duplicateCountCache}`;
+    //     // document.getElementById('finalResultCountCacheARD').textContent = ` ${totaldatatransferRecord}`;
+    //   }
+    //   catch(error){
+    //     console.error("Something went wrong in inserting data",error)
+    //   }
+    // }
+
     async function loadScheduledCrawls() {
       // Stop updating record count
       if (updateInterval) {
@@ -415,8 +884,16 @@
         console.error("Error loading scheduled crawls:", error);
       }
     }
+    $(document).ready(function(){
+      loadScheduledCrawls();
+      loadCRMWebScrapingResults();
+      
+      loadCRMSuspectInputCacheResults();
+    });
 
-    window.onload = loadScheduledCrawls;
+    // window.onload = loadScheduledCrawls;
+    // window.onload = loadCRMWebScrapingResults;
+    //  window.onload = loadCRMSuspectInputCacheResults;
   </script>
 </body>
 </html>

@@ -2,6 +2,7 @@ import datetime
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, List
 
+from dataclasses import dataclass
 import aioodbc
 import psycopg
 import psycopg_pool
@@ -404,21 +405,271 @@ class QueueRepository:
         async with self.mssql_connection_pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 await cursor.execute(
-                       """
-                        WITH CTE AS (
-                            SELECT 
-                                CompanyName,
-                                [DateTime],  -- Include other columns if needed to determine duplicates
-                                ROW_NUMBER() OVER (PARTITION BY CompanyName ORDER BY [DateTime] DESC) AS RowNumber
-                            FROM 
-                                CRMWebScrapingResults
-                        )
+                        """
+                       WITH MaxDateTimeCTE AS (
+                        SELECT
+		                    GooglePlacesID,
+		                    CompanyName,
+                            JobDescription,
+                            MAX([DateTime]) AS MaxDateTime
+                        FROM 
+                            CRMWebScrapingResults
+                        GROUP BY 
+                            JobDescription,GooglePlacesID,CompanyName
+                                    )
 
-                        DELETE FROM CTE
-                        WHERE RowNumber > 1;
+                        DELETE T
+                        FROM CRMWebScrapingResults T
+                        LEFT JOIN MaxDateTimeCTE CTE
+                        ON T.GooglePlacesID = CTE.GooglePlacesID
+                        AND T.CompanyName = CTE.CompanyName
+                        AND T.JobDescription = CTE.JobDescription
+                        AND T.[DateTime] = CTE.MaxDateTime
+                        WHERE CTE.JobDescription IS NULL;
                         """
                     )
+
+    #  added insert_data_into_CRMSuspectInput_Cache function 7/28/2024
+    async def insert_data_into_CRMSuspectInput_Cache(
+        self
+    ) :
+        async with self.mssql_connection_pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                await cursor.execute(
+                    """
+                       INSERT INTO CRMSuspectInput_Cache (
+                        Source,
+                        ScrapingResultsID,
+                        DateAdded,
+                        CompanyName,
+                        AddressFullTextOrig,
+                        GooglePlacesID,
+                        Phone,
+                        Website,
+                        lat,
+                        long,
+                        Position,
+                        [Description],
+                        [JobDescription],
+                        DuplicateRow
+                        )
+                        SELECT 
+                            'None', 
+                            src.ScrapingResultsID, 
+                            GETDATE(), 
+                            src.CompanyName, 
+                            src.[Address], 
+                            src.GooglePlacesID, 
+                            src.Phone, 
+                            src.[url], 
+                            src.lat, 
+                            src.long, 
+                            src.Position, 
+                            src.[Description], 
+                            src.JobDescription, 
+                            0
+                        FROM 
+                            CRMWebScrapingResults AS src
+                        WHERE 
+                            NOT EXISTS (
+                                SELECT 1
+                                FROM CRMSuspectInput_Cache AS dest
+                                WHERE dest.CompanyName = src.CompanyName
+                            );
+
+                        -- Delete records from CRMWebScrapingResults if company name exists in CRMSuspectInput_Cache
+                        DELETE src
+                        FROM CRMWebScrapingResults AS src
+                        WHERE EXISTS (
+                            SELECT 1
+                            FROM CRMSuspectInput_Cache AS dest
+                            WHERE dest.CompanyName = src.CompanyName
+                        );
+
+                    """
+                    )
+                # rows = await cursor.fetchall()
                 
+     
+ 
+
+
+
+    # Get Data from crmscraping results to show on transfer page 7/30/2024 update row count 7/31/2024
+    async def get_results(
+        self,
+    ) -> List[CrawlResult]:
+        async with self.mssql_connection_pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                await cursor.execute(
+                    """
+                   
+
+                    SELECT 
+                    ScrapingResultsID,
+                    ScrapingID,
+                    url,
+                    CompanyName AS company_name,
+                    Address AS address,
+                    Phone AS phone_number,
+                    GooglePlacesID AS google_places_id,
+                    Position AS position,
+                    Description AS description,
+                    lat,
+                    long,
+                    JobDescription AS job_description,
+                    COUNT(*) OVER() AS record_count,
+				   (SELECT 
+						COUNT(*) AS total_duplicate_records
+					FROM (
+						SELECT 
+							WebScraping.CompanyName
+						FROM 
+							"CRMWebScrapingResults" AS WebScraping
+						INNER JOIN 
+							"CRMSuspectInput_Cache" AS SuspectInput
+						ON 
+							WebScraping.CompanyName = SuspectInput.CompanyName
+						GROUP BY 
+							WebScraping.CompanyName
+					) AS Duplicates) AS DuplicateRecord
+					FROM 
+                    "CRMWebScrapingResults";
+
+                    """,
+                   
+                )
+                crawlresults = await cursor.fetchall()
+                column_names = [desc[0] for desc in cursor.description]
+                results = [
+                CrawlResult(
+                    input_id= row[column_names.index('ScrapingResultsID')],
+                    crawl_id= row[column_names.index('ScrapingID')],
+                    url=row[column_names.index('url')],
+                    company_name=row[column_names.index('company_name')],
+                    address=row[column_names.index('address')],
+                    phone_number=row[column_names.index('phone_number')],
+                    google_places_id=row[column_names.index('google_places_id')],
+                    position=row[column_names.index('position')],
+                    description=row[column_names.index('description')],
+                    lat=row[column_names.index('lat')],
+                    long=row[column_names.index('long')],
+                    job_description=row[column_names.index('job_description')],
+                    record_count = row[column_names.index('record_count')],
+                    duplicate_record_count= row[column_names.index('DuplicateRecord')]
+
+                    ) for row in crawlresults
+                ]
+            
+            return results
+
+    # added get_results_CRMSuspectInput_Cache 7/31/2024
+    async def get_results_CRMSuspectInput_Cache(
+        self,
+    ) -> List[CrawlResult]:
+        async with self.mssql_connection_pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                await cursor.execute(
+                    """
+                    WITH DuplicateCounts AS (
+                            SELECT 
+                                CompanyName,
+                                COUNT(*) AS total_duplicate_records
+                            FROM 
+                                "CRMSuspectInput_Cache"
+                            GROUP BY 
+                                CompanyName
+                            HAVING 
+                                COUNT(*) > 1
+                        ),
+                        TotalDuplicateRecords AS (
+                            SELECT 
+                                SUM(total_duplicate_records) AS total_duplicate_records
+                            FROM 
+                                DuplicateCounts
+                        )
+                    SELECT 
+                        c.ScrapingResultsID as InputID ,
+                        c.InputID AS ScrapingId,
+                        c.WebSite as url,
+                        c.CompanyName AS company_name,
+                        c.AddressFullTextOrig AS address,
+                        c.Phone AS phone_number,
+                        c.GooglePlacesID AS google_places_id,
+                        c.Position AS position,
+                        c.Description AS description,
+                        c.lat,
+                        c.long,
+                        c.JobDescription AS job_description,
+                        COUNT(*) OVER() AS record_count,
+                        (SELECT total_duplicate_records FROM TotalDuplicateRecords) AS DuplicateRecord
+                    FROM 
+                        "CRMSuspectInput_Cache" c;
+
+                    """,
+                   
+                )
+                crawlresults = await cursor.fetchall()
+                column_names = [desc[0] for desc in cursor.description]
+                results = [
+                CrawlResult(
+                    input_id= row[column_names.index('InputID')],
+                    crawl_id= row[column_names.index('ScrapingId')],
+                    url=row[column_names.index('url')],
+                    company_name=row[column_names.index('company_name')],
+                    address=row[column_names.index('address')],
+                    phone_number=row[column_names.index('phone_number')],
+                    google_places_id=row[column_names.index('google_places_id')],
+                    position=row[column_names.index('position')],
+                    description=row[column_names.index('description')],
+                    lat=row[column_names.index('lat')],
+                    long=row[column_names.index('long')],
+                    job_description=row[column_names.index('job_description')],
+                    record_count = row[column_names.index('record_count')],
+                    duplicate_record_count= row[column_names.index('DuplicateRecord')]
+                    ) for row in crawlresults
+                ]
+            
+            return results
+      
+     #added duplication removal for crmsuspect input cache 7/31/2024
+
+    async def remove_duplicate_crmsuspectcache(
+        self
+    ) :
+        async with self.mssql_connection_pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+              await cursor.execute("""
+                                WITH LatestRecordsCTE AS (
+                    SELECT
+                        [InputID],
+                        [CompanyName],
+                        ROW_NUMBER() OVER (
+                            PARTITION BY [CompanyName]
+                            ORDER BY [DateAdded] DESC
+                        ) AS rn
+                    FROM 
+                        CRMSuspectInput_Cache
+                )
+
+                -- Step 2: Delete records that are not the most recent
+                DELETE T
+                FROM CRMSuspectInput_Cache T
+                WHERE T.[InputID] IN (
+                    SELECT [InputID]
+                    FROM LatestRecordsCTE
+                    WHERE rn > 1
+                );
+
+                -- Step 3: Return the number of removed rows
+                SELECT 
+                    COUNT(*) AS removed_row_count
+                FROM LatestRecordsCTE
+                WHERE rn > 1;
+                """)
+
+            return True
+                    
     # added funnction to clean job description 7/23/2024
     async def clean_job_description(
         self
@@ -437,7 +688,7 @@ class QueueRepository:
 
                         """
                     )
-                 
+                     
 
     async def count_input_rows(self) -> int:
         async with self.mssql_connection_pool.acquire() as conn:
@@ -533,6 +784,7 @@ class QueueRepository:
                     ),
                 )
                 await conn.commit()
+                
 
     async def update_time_processed_datetimes(self, crawl_id: int):
         async with self.transaction() as conn:

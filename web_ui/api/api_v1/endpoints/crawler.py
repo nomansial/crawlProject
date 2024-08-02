@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from repository.db_repository import QueueRepository
 import repository.db_repository
 from repository.models import Crawl
+from repository.models import CrawlResult
 import request_processor.request_processor
 from web_ui.api.api_v1.models import CreateCrawl
 from web_ui.api.deps import repository
@@ -69,6 +70,12 @@ async def startCrawl():
     asyncio.create_task(main(stop_event))  # Start the main function as a background task
     return json.dumps({"message": "Crawler Started"})
 
+# added startTransfer function 7/28/2024
+@router.post("/startTransfer")
+async def stopCrawl(repository: QueueRepository = Depends(repository)):
+    await repository.insert_data_into_CRMSuspectInput_Cache()
+    return  json.dumps({"message" : "Data Transfer Complete"})
+
 
 @router.post("/stopCrawl")
 async def stopCrawl():
@@ -86,6 +93,14 @@ async def get_Record_Count(repository: QueueRepository = Depends(repository)):
     }
     return JSONResponse(content=response_data)
 
+@router.post("/isCrawlFinished")
+async def is_Crawl_Finished(repository: QueueRepository = Depends(repository)):
+    isFinished = await repository.is_crawl_finished()
+    response_data = {
+        "isFinished": isFinished
+    }
+    return JSONResponse(content=response_data)
+
 
 @router.post("/getElapsedTime")
 async def get_Elapsed_Time():
@@ -94,6 +109,37 @@ async def get_Elapsed_Time():
         "elapsedTime": elapsedTime
     }
     return JSONResponse(content=response_data)
+
+#Getting records from results table to show on transfer page 7/30/2024 / getting count of record 
+@router.get("/getCRMScrapingResults", response_model=List[CrawlResult])
+async def get_crawl_results(repository: QueueRepository = Depends(repository)):
+    try:
+        return await  repository.get_results()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+#Getting records from CRMSuspectInputCache table to show on Remove Duplicates page 7/31/2024
+@router.get("/getCRMSuspectInputCacheResults", response_model=List[CrawlResult])
+async def get_crawl_results(repository: QueueRepository = Depends(repository)):
+    try:
+        return await  repository.get_results_CRMSuspectInput_Cache()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+# Remove Duplicates CrmSuspectinput page 7/31/2024
+@router.get("/removeDuplicateCRMSuspectCache", response_model=List[CrawlResult])
+async def remove_duplicates_crmsuspectinput(repository: QueueRepository = Depends(repository)):
+    try:
+        result = await  repository.remove_duplicate_crmsuspectcache()
+        if result:
+            return JSONResponse({'message':'Duplicate Data Removed'})
+            
+        else:
+            return JSONResponse({'message':'No Duplicates Found'})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
 
 
 

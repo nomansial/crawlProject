@@ -454,7 +454,7 @@ class QueueRepository:
                         DuplicateRow
                         )
                         SELECT 
-                            'None', 
+                            src.SearchSite +' - '+ src.SearchTerm AS Source, 
                             src.ScrapingResultsID, 
                             GETDATE(), 
                             src.CompanyName, 
@@ -514,6 +514,8 @@ class QueueRepository:
                     Phone AS phone_number,
                     GooglePlacesID AS google_places_id,
                     Position AS position,
+                    SearchSite,
+					SearchTerm,
                     Description AS description,
                     lat,
                     long,
@@ -556,7 +558,10 @@ class QueueRepository:
                     long=row[column_names.index('long')],
                     job_description=row[column_names.index('job_description')],
                     record_count = row[column_names.index('record_count')],
-                    duplicate_record_count= row[column_names.index('DuplicateRecord')]
+                    duplicate_record_count= row[column_names.index('DuplicateRecord')],
+                    search_term=row[column_names.index('SearchTerm')],
+                    search_site=row[column_names.index('SearchSite')]
+
 
                     ) for row in crawlresults
                 ]
@@ -590,6 +595,7 @@ class QueueRepository:
                         )
                     SELECT 
                         c.ScrapingResultsID as InputID ,
+                        c.Source AS Source,
                         c.InputID AS ScrapingId,
                         c.WebSite as url,
                         c.CompanyName AS company_name,
@@ -626,7 +632,8 @@ class QueueRepository:
                     long=row[column_names.index('long')],
                     job_description=row[column_names.index('job_description')],
                     record_count = row[column_names.index('record_count')],
-                    duplicate_record_count= row[column_names.index('DuplicateRecord')]
+                    duplicate_record_count= row[column_names.index('DuplicateRecord')],
+                    search_term= row[column_names.index('Source')]
                     ) for row in crawlresults
                 ]
             

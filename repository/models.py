@@ -76,6 +76,6 @@ class CrawlResult:
     record_count: int| None = None
     #added property for duplicate records with cache table 7/31/2024
     duplicate_record_count: int |None = None
-
-
-    
+    #added search site for source and search term for term 8/3/2024
+    search_site : str |None= None
+    search_term : str |None = None    

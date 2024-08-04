@@ -265,8 +265,8 @@
         <thead>
           <tr>
             <th>Display Num</th>
-            <th>Search Source</th>
-            <th>Search Term</th>
+            <th>Search Source + Term</th>
+             
             <!-- <th>InputId</th> -->
             <!-- <th>ScrapingResultsId</th> -->
             <th>CompanyName</th>
@@ -373,13 +373,14 @@
       const response = await fetch("/api/v1/crawls/startCrawl", {
         method: "POST",
       });
+      debugger;
 
       if (!response.ok) {
         throw new Error("Network response was not ok " + response.statusText);
       } else {
         // Start updating record count every 1.5 seconds
         setTimeout(timeInterval = setInterval(fetchElapsedTime, 10000), 5000)
-        setTimeout(updateInterval = setInterval(updateRecordCount, 10000), 5000)
+        //setTimeout(updateInterval = setInterval(updateRecordCount, 10000), 5000)
       }
 
       const data = await response.json();
@@ -391,12 +392,13 @@
       startButton.classList.add('disabled');
       startButton.disabled = true;
       stopButton.classList.remove('disabled');
-      stopButton.disabled = false;
+      stopButton.disabled = false;      
       loadScheduledCrawls()
       return data;
     }
 
     async function stopCrawl() {
+      setTimeout(loadScheduledCrawls, 5000)
       const response = await fetch("/api/v1/crawls/stopCrawl", {
         method: "POST",
       });
@@ -430,11 +432,11 @@
       startButton.disabled = false;
       stopButton.classList.add('disabled');
       stopButton.disabled = true;
-
       return data;
     }
 
     async function fetchElapsedTime() {
+      updateRecordCount()
       try {
         const response = await fetch("/api/v1/crawls/getElapsedTime", {
           method: "POST",
@@ -666,8 +668,8 @@
           // <td>${crawlResult.input_id}</td>
           row.innerHTML = `
           <td>${count}</td>
-            <td>""</td>
-            <td>""</td>
+            <td>${crawlResult.search_site}</td>
+            <td>${crawlResult.search_term}</td>
             
             <td>${crawlResult.company_name}</td>
              <td>${crawlResult.address}</td>
@@ -716,8 +718,8 @@
           //<td>${crawlResult.input_id}</td>
           row.innerHTML = `
             <td>${count}</td>
-            <td>""</td>
-            <td>""</td>
+            <td>${crawlResult.search_site}</td>
+            <td>${crawlResult.search_term}</td>
              <td>${crawlResult.company_name}</td>
              <td>${crawlResult.address}</td>
             <td>${crawlResult.url}</td>
@@ -766,8 +768,8 @@
           // <td>${crawl.minimum_date}</td>
           row.innerHTML = `
             <td>${count}</td>
-            <td>""</td>
-            <td>""</td>
+            <td>${crawlResult.search_term}</td>
+            
             <td>${crawlResult.company_name}</td>
             <td>${crawlResult.url}</td>
             <td>${crawlResult.address}</td>

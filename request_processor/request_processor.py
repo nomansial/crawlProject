@@ -41,8 +41,10 @@ async def process_request(
             if results:
                 for result in results:
                     await repository.write_result(result, job.metadata)
+                    await repository.write_result(result, job.metadata)
+                await repository.update_time_processed(input_id=job.input_id)
             await repository.set_success(job.id)
-            await repository.update_time_processed(input_id=job.input_id)
+            
         except Exception as err:
             logger.error(
                 f"Error processing url: {job.url}: {type(err)}: {err}. Setting job {job.id} status to error."

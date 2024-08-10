@@ -78,4 +78,8 @@ class CrawlResult:
     duplicate_record_count: int |None = None
     #added search site for source and search term for term 8/3/2024
     search_site : str |None= None
-    search_term : str |None = None    
+    search_term : str |None = None
+
+
+
+    

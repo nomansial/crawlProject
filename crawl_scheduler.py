@@ -35,7 +35,7 @@ async def crawl_scheduler(repository: QueueRepository, stop_flag: asyncio.Event)
                         await repository.set_crawl_finished_at_to_now(crawl.id)
                         # added remove_duplicate_records in db_repository 7/21/2024
                         await repository.remove_duplicate_records()
-                        # added clean_job_description in db_repository 7/21/2024
+                        # added clean_job_description in db_repository 7/23/2024
                         await repository.clean_job_description()
                     crawl.status = "done"
                     stop_flag.set()
@@ -67,14 +67,14 @@ async def crawl_scheduler(repository: QueueRepository, stop_flag: asyncio.Event)
                     await repository.set_crawl_finished_at_to_now(crawl.id)
                     # added remove_duplicate_records in db_repository 7/21/2024
                     await repository.remove_duplicate_records()
-                    # added clean_job_description in db_repository 7/21/2024
+                    # added clean_job_description in db_repository 7/23/2024
                     await repository.clean_job_description()
                     await repository.clear_queue()
                     crawl.status = "done"
                     stop_flag.set()
 
     if stop_flag.is_set() and crawl is not None:
-        # added clean_job_description in db_repository 7/21/2024
+        # added clean_job_description in db_repository 7/23/2024
         await repository.clean_job_description()
         # await repository.update_time_processed_datetimes(crawl.id)
         await repository.set_crawl_status(crawl.id, "done")
@@ -127,6 +127,28 @@ def map_input_row_to_job(row: InputRow, crawl_id: int) -> CreateJob | None:
             url = "https://www.indeed.com/?hl=en&co=us&countrySelector=1"
         else:
             url = f"https://{row.gl}.indeed.com"
+
+        return CreateJob(
+            input_id=row.scraping_id,
+            crawl_id=crawl_id,
+            url=url,
+            metadata={
+                "records_left": row.record_limit,
+                "site_type": "search",
+                "search_term": search_term,
+                "search_website": row.website,
+                "location": location,
+            },
+        )
+
+    if row.website == "Glassdoor":
+        location = row.uule.replace(",", ", ")
+        search_term = row.search_term
+        # Removed Exception due to upper case 7/19/2024
+        if row.gl.lower() == "us":
+            url = "https://www.glassdoor.com/Job/jobs.htm"
+        else:
+            url = f"https://{row.gl}.glassdoor.com"
 
         return CreateJob(
             input_id=row.scraping_id,

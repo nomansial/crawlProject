@@ -3,6 +3,7 @@ from typing import List, Optional
 from repository.db_repository import QueueRepository
 from repository.models import CrawlResult, Job
 from request_processor.request_handlers import (
+    glassdoor,
     google,
     indeed,
     workopolis,
@@ -51,6 +52,23 @@ async def dispatch_request(
                 return await indeed.DetailsHandler(repository, url_resolver).handle_job(
                     job
                 )
+            
+    if "glassdoor.com" in job.url:
+        match job.metadata.get("site_type"):
+            case "search":
+                return await glassdoor.SearchHandler(repository, url_resolver).handle_job(
+                    job
+                )
+            case "list":
+                return await glassdoor.PageHandler(repository, url_resolver).handle_job(
+                    job
+                )
+            case "details":
+                return None
+                # return await glassdoor.DetailsHandler(repository, url_resolver).handle_job(
+                #     job
+                # )
+
     if "workopolis.com" in job.url:
         match job.metadata.get("site_type"):
             case "search":

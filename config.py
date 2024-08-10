@@ -17,11 +17,10 @@ class Settings(BaseSettings):
     SECRET_KEY: str = secrets.token_urlsafe(32)
 
     SF_API_URL: str = "https://scraping.narf.ai/api/v1/"
-    SF_API_KEY: str = "PUT FISH API KEY HERE"
-    # 5B1vJSUe9NRGTQ0oPlAmD66LRRqzZzFMcjyoxHEZANDSQPA4vyljhsfKJzhM MK5uczL3qMSillraTlD5KD
+    SF_API_KEY: str = 
     REQUESTS_CONCURRENCY: int = 3
     URL_MAXIMUM_RETRIES: int = 10
-    GOOGLE_API_KEY: str ="PUT API KEY HERE"
+    GOOGLE_API_KEY: str =
 
     POSTGRES_DSN: str = (
         "postgres://postgres:abc123@localhost:5432/postgres"

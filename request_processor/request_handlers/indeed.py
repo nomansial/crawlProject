@@ -167,6 +167,13 @@ class DetailsHandler(UrlHandler):
             latitude = location_data[1]
             longitude = location_data[2]
             compaddress = location_data[3]
+            
+        # print(type(placeid))
+        # print(type(latitude))
+        # print(type(longitude))
+        # print(type(compaddress))
+
+
 
 #add job description to results and directly to mssql
 # added joib desceription 7/19/2024

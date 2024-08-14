@@ -4,12 +4,13 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
-
+from config import settings
 from logger import logger
 from repository.models import CrawlResult, CreateJob, Job
 from request_processor.request_handlers.handler import (
     UrlHandler,
 )
+from . import google_places_handler
 
 # from job_postings_crawler.logger import logger
 # from job_postings_crawler.repository.models import CrawlResult, CreateJob, Job
@@ -91,6 +92,7 @@ class SearchHandler(UrlHandler):
 
 class DetailsHandler(UrlHandler):
     async def handle_job(self, job: Job):
+        
         data_cid = job.metadata.get("data_cid")
         response = await self.url_resolver.get(
             job.url,
@@ -112,6 +114,7 @@ class DetailsHandler(UrlHandler):
         response: httpx.Response,
         job: Job,
     ) -> List[CrawlResult]:
+        google_api_key = settings.GOOGLE_API_KEY
         soup = BeautifulSoup(response.text, "html.parser")
         google_places_id = job.metadata.get("data_cid")
 
@@ -119,13 +122,15 @@ class DetailsHandler(UrlHandler):
         company_name = None
         if company_name_node is not None:
             company_name = company_name_node.text.strip()
+            location_data = google_places_handler.get_google_place_id(api_key=google_api_key, company_name=company_name)
+            place_id, latitude, longitude, comp_address = (location_data or (None, None, None, None))
 
-        company_address_node = soup.select_one(
-            "div[data-attrid='kc:/location/location:address'] span.LrzXr"
-        )
+        # company_address_node = soup.select_one(
+        #     "div[data-attrid='kc:/location/location:address'] span.LrzXr"
+        # )
         company_address = None
-        if company_address_node is not None:
-            company_address = company_address_node.text.strip()
+        if location_data is not None:
+            company_address = comp_address
 
         phone_number_node = soup.select_one("span[aria-label*='Call Phone Number']")
         phone_number = None
@@ -143,10 +148,13 @@ class DetailsHandler(UrlHandler):
             input_id=job.input_id,
             crawl_id=job.crawl_id,
             url=url,
-            google_places_id=google_places_id,
+            google_places_id=place_id,
             company_name=company_name,
             address=company_address,
             phone_number=phone_number,
+            lat=latitude,
+            long=longitude
+
         )
 
         if (

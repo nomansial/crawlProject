@@ -394,8 +394,8 @@
       stopButton.classList.remove('disabled');
       stopButton.disabled = false;      
       loadScheduledCrawls()
-      return data;
-    }
+      return data;
+    }
 
     async function stopCrawl() {
       setTimeout(loadScheduledCrawls, 5000)
@@ -500,8 +500,8 @@
         stopButton.disabled = true;
         // added to get updated crawls table 8/2/2024
         loadScheduledCrawls()
-      }
-    }
+      }
+    }
 
     function formatDuration(elapsedTimeSeconds) {
       let weeks = Math.floor(elapsedTimeSeconds / (60 * 60 * 24 * 7));

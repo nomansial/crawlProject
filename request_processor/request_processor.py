@@ -40,7 +40,8 @@ async def process_request(
             elapsed_time =  current_time_after_results - current_time
             if results:
                 for result in results:
-                    await repository.write_result(result, job.metadata)
+                    # 8/12/2024 remove this line
+                    # await repository.write_result(result, job.metadata)
                     await repository.write_result(result, job.metadata)
                 await repository.update_time_processed(input_id=job.input_id)
             await repository.set_success(job.id)

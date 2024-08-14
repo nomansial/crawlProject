@@ -14,11 +14,13 @@ import asyncio
 import signal
 from typing import List
 import request_processor
+from crawler import crawl
 
 # from job_postings_crawler.repository.db_repository import QueueRepository
 # from job_postings_crawler.repository.models import Crawl
 # from job_postings_crawler.web_ui.api.api_v1.models import CreateCrawl
 # from job_postings_crawler.web_ui.api.deps import repository
+
 
 router = APIRouter(
     prefix="/crawls",
@@ -26,7 +28,7 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-
+stop_event = asyncio.Event()
 @router.post("/")
 async def schedule_crawl(
     create_crawl: CreateCrawl,
@@ -64,10 +66,12 @@ async def get_scheduled_crawls(repository: QueueRepository = Depends(repository)
 
 @router.post("/startCrawl")
 async def startCrawl():
-    # global stop_event
-    stop_event.clear()  # Clear the stop event before starting
+    stop_event.clear()  
     
-    asyncio.create_task(main(stop_event))  # Start the main function as a background task
+    #from job_postings_crawler.crawler import crawl  # Import crawl function and pass two parameters on production
+    #asyncio.create_task(main(crawl, stop_event))  # On production pass two parameters
+
+    asyncio.create_task(main(stop_event))
     return json.dumps({"message": "Crawler Started"})
 
 # added startTransfer function 7/28/2024
@@ -139,7 +143,3 @@ async def remove_duplicates_crmsuspectinput(repository: QueueRepository = Depend
             return JSONResponse({'message':'No Duplicates Found'})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-        
-
-
-

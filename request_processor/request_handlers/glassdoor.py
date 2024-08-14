@@ -59,7 +59,7 @@ def parse_job_listings(html_content):
     job_listings = soup.find_all('li', class_='JobsList_jobListItem__wjTHv')
 
     jobs = []
-    for job in job_listings:
+    for job in job_listings[:5]:
         # Extract job title
         job_title_tag = job.find('a', class_='JobCard_jobTitle___7I6y')
         job_title = job_title_tag.get_text(strip=True) if job_title_tag else 'No job title found'
@@ -72,11 +72,16 @@ def parse_job_listings(html_content):
         location_tag = job.find('div', class_='JobCard_location__rCz3x')
         location = location_tag.get_text(strip=True) if location_tag else 'No location found'
 
+        #8/12/2024 updated job_link
+        job_link = job_title_tag['href'] if job_title_tag else 'No job link found'
+
         # Extract job link
-        job_link_tag = job.find('a', class_='JobCard_trackingLink__GrRYn')
-        job_link = job_link_tag['href'] if job_link_tag else 'No job link found'
+        # job_link_tag = job.find('a', class_='JobCard_trackingLink__GrRYn')
+        # job_link = job_link_tag['href'] if job_link_tag else 'No job link found'
+
+        # 8/12/2024 No Need for this now
         # Ensure the link is complete
-        job_link = f'https://www.glassdoor.com{job_link}' if job_link != 'No job link found' else job_link
+        # job_link = f'https://www.glassdoor.com{job_link}' if job_link != 'No job link found' else job_link
 
         jobs.append({
             'title': job_title,
@@ -93,6 +98,7 @@ class SearchHandler(UrlHandler):
             return None
         query=job.metadata['search_term']
         location_name=job.metadata['location']
+        normalized_location_name_parts = self.normalize_location(location_name)
         job.url = (
             f"https://www.glassdoor.com/Job/jobs.htm?"
             f"sc.keyword={query.replace(' ', '%20')}&"
@@ -112,21 +118,27 @@ class SearchHandler(UrlHandler):
         if response:
             job_listings = parse_job_listings(html_content=response)    
 
-            for jobs in job_listings[:20]:  # Display the top 10 job listings
-                
-                print(f"Website: Glassdoor")
-                print(f"Search Keyword: {job.metadata['search_term']}")
-                print(f"Title: {jobs['title']}")
-                print(f"Company: {jobs['company']}")
-                print(f"Location: {jobs['location']}")
-                print(f"Link: {jobs['link']}")
-                print('-' * 80)
-                jobs_array.append({
-                'title': jobs['title'],
-                'company': jobs['company'],
-                'location': jobs['location'],
-                'link': jobs['link']
-                })
+            for jobs in job_listings[:5]:  # Display the top 10 job listings
+                # Normalize job location
+                normalized_job_location_parts = self.normalize_location(jobs['location'])
+
+                # Check if any part of location_name is present in job location
+                match = any(part in normalized_job_location_parts for part in normalized_location_name_parts)
+
+                if match:
+                    print(f"Website: Glassdoor")
+                    print(f"Search Keyword: {job.metadata['search_term']}")
+                    print(f"Title: {jobs['title']}")
+                    print(f"Company: {jobs['company']}")
+                    print(f"Location: {jobs['location']}")
+                    print(f"Link: {jobs['link']}")
+                    print('-' * 80)
+                    jobs_array.append({
+                    'title': jobs['title'],
+                    'company': jobs['company'],
+                    'location': jobs['location'],
+                    'link': jobs['link']
+                    })
             
            
         else:
@@ -139,60 +151,77 @@ class SearchHandler(UrlHandler):
                     job_listings,job=job
                 )    # process
         #return None
+     
+    def normalize_location(self, location):
+        # Strip quotes and split the location
+        location_parts = location.strip('"').split(", ")
+        return [part.strip().lower() for part in location_parts]
     
-    def process_crawl_result ( self, job_descriptions, job: Job
-    ) -> Optional[List[CrawlResult]]:
-        listofresults =[]
-        compaddress = None
-        placeid = None
-        latitude = None
-        longitude = None
-        googleapikey = settings.GOOGLE_API_KEY
-        
+    # 8/12/2024 Updated process_crawl_result 
+    def process_crawl_result(self, job_descriptions: List[dict], job: Job) -> Optional[List[CrawlResult]]:
+        list_of_results = []
+        google_api_key = settings.GOOGLE_API_KEY
 
-        for jobdesc in job_descriptions:
-            location_data = google_places_handler.get_google_place_id(api_key=googleapikey,company_name=jobdesc['company'])
-            if location_data is not None:
-                placeid = location_data[0]
-                latitude = location_data[1]
-                longitude = location_data[2]
-                compaddress = location_data[3]
+        for job_desc in job_descriptions:
+            company_name = job_desc.get('company')
+            link = job_desc.get('link')
+
+            # Fetch location data from Google Places
+            location_data = google_places_handler.get_google_place_id(api_key=google_api_key, company_name=company_name)
+            place_id, latitude, longitude, comp_address = (location_data or (None, None, None, None))
+
+            # Fetch job description using scrapingfish
+            job_description = self.get_job_description_with_scrapingfish(link)
+
             result = CrawlResult(
-                    input_id=job.input_id,
-                    crawl_id=job.crawl_id,
-                    url=jobdesc['link'],
-                    company_name=jobdesc['company'],
-                    address=compaddress,
-                    position=jobdesc['title'],
-                    description= "",
-                    google_places_id=str(placeid),
-                    # fixed exception 7/23/2024
-                    lat = float(latitude) if latitude is not None else None,
-                    long = float(longitude) if longitude is not None else None,
-                    # added job_description 7/23/2024
-                    job_description= ''
-                )
-            listofresults.append(result)
-        return listofresults
-        # return [
-        #     CrawlResult(
-        #         input_id=job.input_id,
-        #         crawl_id=job.crawl_id,
-        #         url=job_description['link'],
-        #         company_name=job_description['company'],
-        #         address=compaddress,
-        #         position=job_description['title'],
-        #         description= "",
-        #         google_places_id=str(placeid),
-        #         # fixed exception 7/23/2024
-        #         lat = float(latitude) if latitude is not None else None,
-        #         long = float(longitude) if longitude is not None else None,
-        #         # added job_description 7/23/2024
-        #         job_description= ''
-        #     )
-        # ]
-        
-        
+                input_id=job.input_id,
+                crawl_id=job.crawl_id,
+                url=link,
+                company_name=company_name,
+                address=comp_address,
+                position=job_desc.get('title'),
+                description="",
+                google_places_id=str(place_id) if place_id else None,
+                lat=float(latitude) if latitude else None,
+                long=float(longitude) if longitude else None,
+                job_description=job_description if job_description else ""
+            )
+            list_of_results.append(result)
+
+        return list_of_results
+
+    # 8/12/2024 Added get_job_description_with_scrapingfish
+    def get_job_description_with_scrapingfish(self, job_url: str) -> Optional[str]:
+        API_KEY = 'cyUbfaD2vOUgyrNLe2QGTgudk8W12Hzy8fTIuRJGMOeItyYvt0MBid6QaEgjkExOtL5umQAE0Vgn18AtzK'
+        SEARCH_URL = 'https://scraping.narf.ai/api/v1/'
+
+        api_url = f"{SEARCH_URL}?api_key={API_KEY}&url={job_url}"
+
+        try:
+            response = requests.get(api_url)
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            # Look for a more generic container that might hold the job description
+            job_description_div = soup.find('div', {'class': lambda x: x and 'job' in x.lower()})
+
+            if job_description_div:
+                paragraphs = job_description_div.find_all(['p', 'li'])
+                job_description = "\n".join([p.get_text(strip=True) for p in paragraphs])
+                return job_description.strip()  # Ensure job description is cleaned and stripped
+
+            # Fallback to searching within all text or using meta tags
+            meta_description = soup.find('meta', {'name': 'description'})
+            if meta_description and meta_description.get('content'):
+                return meta_description['content'].strip()
+
+            return 'Job description not found'
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching job description for {job_url}: {e}")
+            return None
+
     #changed process content to use job urls from json data 
     def process_content(self, Parsed_Job_list, job: Job) -> List[CreateJob]:
        # parsed_url = urlparse(response.headers.get("Resolved-Url"))
